@@ -1,0 +1,79 @@
+clc;
+clear all;
+close all;
+
+% Reading the ECG data from file
+data = load("C:\Users\user1\Downloads\a01m.mat");
+signal = data.val; % Extract the signal data from the loaded structure
+
+% Signal pre-processing
+processed_signal = signal - mean(signal);
+
+% Initializing parameters
+fs = 200;
+t = (0:length(signal) - 1) / fs;
+N = length(signal);
+k = 0:N - 1;
+F = k * fs / N;
+
+% FIR Notch Filter Design
+f0 = 60; % Center frequency for the notch
+
+% Magnitude spectrum of the signal
+processed_sig_fft = fft(processed_signal);
+
+% Powerline noise removal using a notch filter
+w1 = 2 * pi * (f0 / fs);
+z1 = [exp(1j * w1); exp(-1j * w1)];
+[b_notch, a_notch] = zp2tf(z1, [0; 0], 1 / sum(poly(z1)));
+filtered_signal = filtfilt(b_notch, a_notch, processed_signal);
+
+% Magnitude spectrum of the filter
+[h, f] = freqz(b_notch, a_notch, 1024, fs);
+
+% Filtered ECG signal
+filtered_ecg = filtfilt(b_notch, a_notch, filtered_signal);
+processed_filtered_signal = filtered_ecg - mean(filtered_ecg);
+filtered_signal_fft = fft(processed_filtered_signal);
+
+% Plots
+% Question 1
+figure;
+subplot(2, 1, 1);
+plot(t, processed_signal);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('Original ECG Signal in Time Domain');
+
+subplot(2, 1, 2);
+plot(F, abs(processed_sig_fft));
+title('Magnitude Spectrum of Original ECG Signal');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+
+% Question 2
+figure;
+plot(f, abs(h));
+title('Magnitude Spectrum of Notch Filter');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+
+% Question 3
+figure;
+zplane(b_notch, a_notch);
+title('Pole-Zero Plot of Notch FIR Filter');
+
+% Question 4
+figure;
+subplot(2, 1, 1);
+plot(t, processed_filtered_signal);
+xlabel('Time (s)');
+ylabel('Amplitude');
+title('Filtered ECG Signal in Time Domain');
+
+subplot(2, 1, 2);
+plot(F, abs(filtered_signal_fft));
+title('Magnitude Spectrum of Filtered ECG Signal');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+
