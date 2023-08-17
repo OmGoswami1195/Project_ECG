@@ -1,0 +1,75 @@
+clc;
+clear all;
+close all;
+
+% Reading the ECG data from file
+data = load("C:\Users\user1\OneDrive\Desktop\ECG signals (1000 fragments)\MLII\12 VFL\207m (9).mat");
+signal = data.val; % Extract the signal data from the loaded structure
+plot(signal)
+
+fs = 360;
+filterorder = 10;
+cutofflow = 18;
+cutoffhigh = 4;
+
+% Design Low-pass Butterworth filter
+[b, a] = butter(filterorder, cutofflow/(fs/2), 'low');
+[h, w] = freqz(b, a);
+figure;
+plot((w/pi)*fs/2, abs(h));
+title('Low-pass Magnitude Response');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+
+% Apply Low-pass filter
+eeglowpass = filter(b, a, signal);
+figure;
+subplot(3,1,1);
+plot(eeglowpass);
+title('Low-pass Filtered ECG Signal');
+xlabel('Sample');
+ylabel('Amplitude');
+
+% Design High-pass Butterworth filter
+[b1, a1] = butter(filterorder, cutoffhigh/(fs/2), 'high');
+[h1, w1] = freqz(b1, a1);
+figure;
+plot((w1/pi)*(fs/2), abs(h1));
+title('High-pass Magnitude Response');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+
+% Apply High-pass filter
+eeghighpass = filter(b1, a1, eeglowpass);
+subplot(3,1,2);
+plot(eeghighpass);
+title('High-pass Filtered ECG Signal');
+xlabel('Sample');
+ylabel('Amplitude');
+
+% Find R-wave peaks
+[pks, locs] = findpeaks(eeghighpass(1801:end));
+threshold = 2 * (rms(eeghighpass(1801:end)));
+rwave = pks > threshold;
+rwaveform = zeros(size(eeghighpass(1801:end)));
+rwaveform(locs(rwave)) = max(eeghighpass(1801:end));
+subplot(3,1,3);
+plot(eeghighpass(1801:end));
+hold on;
+plot(rwaveform);
+title('R-wave Detection');
+xlabel('Sample');
+ylabel('Amplitude');
+legend('Filtered ECG', 'Detected R-wave');
+
+beat = sum(rwave);
+hr = (beat / 5) * 60; % Assuming a 5-second window
+disp(['Heart Rate: ', num2str(hr), ' bpm']);
+% Calculate RR intervals
+rr_intervals = diff(locs) / fs;
+
+% Calculate SDNN (Standard Deviation of RR intervals)
+sdnn = std(rr_intervals);
+
+fprintf("Heart Rate: %.2f bpm\n", hr);
+fprintf("Heart Rate Variability (SDNN): %.2f ms\n", sdnn * 1000);
